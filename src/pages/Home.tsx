@@ -3,14 +3,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import MascotSticker from "@/components/MascotSticker";
-import { BookOpen, Camera, CalendarDays, MapPin } from "lucide-react";
+import { BookOpen, Camera, CalendarDays } from "lucide-react";
 
 export default function Home() {
   return (
     <div className="space-y-10">
       <section className="space-y-5">
         <HeroCarousel />
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <Card className="paper-edge rounded-4xl border-border bg-card p-5 sm:p-6 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -20,20 +20,6 @@ export default function Home() {
                 </div>
               </div>
               <MascotSticker variant="wave" className="h-20 w-20 sm:h-24 sm:w-24" />
-            </div>
-          </Card>
-
-          <Card className="paper-edge rounded-4xl border-border bg-card p-5 sm:p-6 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-base font-black">地址與聯絡</div>
-                <div className="mt-2 flex items-center gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  <span>733 臺南市東山區青山里16號</span>
-                </div>
-                <div className="mt-2 text-sm text-muted-foreground">電話：(06)6861041</div>
-              </div>
-              <MascotSticker variant="calendar" className="h-20 w-20 sm:h-24 sm:w-24" />
             </div>
           </Card>
 

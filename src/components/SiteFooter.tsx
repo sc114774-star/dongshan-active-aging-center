@@ -7,8 +7,7 @@ export default function SiteFooter() {
         <div>
           <div className="text-lg font-black">臺南市東山區樂齡學習中心</div>
           <div className="mt-2 text-sm text-muted-foreground">
-            由臺南市東山區青山國民小學（Tainan Municipal Dongshan District Cingshan Elementary School）
-            負責。
+            由臺南市東山區青山國民小學負責。
           </div>
           <div className="mt-4 flex flex-col gap-2 text-sm">
             <div className="flex items-start gap-2">

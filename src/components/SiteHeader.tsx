@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { CalendarDays, Camera, HeartHandshake, Home, Menu, Sparkles } from "lucide-react";
-import MascotSticker from "@/components/MascotSticker";
+import logo from "@/assets/logo.png";
 
 const nav = [
   { href: "/", label: "首頁", icon: Home },
@@ -59,7 +59,11 @@ export default function SiteHeader() {
             transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut" }}
             className="hidden shrink-0 sm:block"
           >
-            <MascotSticker variant="wave" className="h-16 w-16 md:h-[72px] md:w-[72px]" />
+            <img
+              src={logo}
+              alt="臺南市東山區樂齡中心 標誌"
+              className="h-14 w-14 rounded-full border border-border/60 bg-background object-cover shadow-sm md:h-16 md:w-16"
+            />
           </motion.div>
 
           <Link href="/">
@@ -105,7 +109,11 @@ export default function SiteHeader() {
               </SheetHeader>
               <div className="mt-5 rounded-4xl border border-border bg-secondary/35 p-4">
                 <div className="flex items-center gap-4">
-                  <MascotSticker variant="calendar" className="h-20 w-20 shrink-0" />
+                  <img
+                    src={logo}
+                    alt="臺南市東山區樂齡中心 標誌"
+                    className="h-20 w-20 shrink-0 rounded-full border border-border/60 bg-background object-cover shadow-sm"
+                  />
                   <div className="min-w-0">
                     <div className="text-xl font-black">樂齡學習中心</div>
                     <div className="mt-1 text-sm leading-6 text-muted-foreground">

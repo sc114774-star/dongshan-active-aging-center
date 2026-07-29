@@ -18,6 +18,8 @@ export type ReflectionInput = {
   author?: string | null;
   image_url?: string | null;
   tags?: string[] | null;
+  school_year?: string | null;
+  location?: string | null;
 };
 
 export async function createEvent(input: EventInput) {

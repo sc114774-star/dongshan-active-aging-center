@@ -8,9 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import MascotSticker from "@/components/MascotSticker";
 import type { DbEvent, DbPhoto, DbReflection } from "@/lib/types";
+import { LOCATIONS, SCHOOL_YEARS } from "@/lib/constants";
 import { listEventsBetween, listPhotos, listReflections } from "@/lib/db";
 import {
   createEvent,
@@ -35,18 +37,13 @@ const emptyReflection: ReflectionInput = {
   quote: "",
   author: "",
   image_url: "",
-  tags: ["114學年度", "青山國小"],
+  tags: [],
+  school_year: "",
+  location: "",
 };
 
 function hasSupabaseConfig() {
   return Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
-}
-
-function parseTags(s: string) {
-  return s
-    .split(/[，,\n]/)
-    .map((x) => x.trim())
-    .filter(Boolean);
 }
 
 function AdminLogin({ onLogin }: { onLogin: () => void }) {
@@ -216,7 +213,21 @@ function EventsAdmin() {
               </Button>
             </div>
           )}
-          <Input placeholder="地點（例：青山國小活動教室）" value={form.location ?? ""} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+          <Select
+            value={form.location ?? ""}
+            onValueChange={(value) => setForm({ ...form, location: value })}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="選擇地點" />
+            </SelectTrigger>
+            <SelectContent>
+              {LOCATIONS.map((loc) => (
+                <SelectItem key={loc} value={loc}>
+                  {loc}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Textarea placeholder="課程內容 / 備註" rows={5} value={form.content ?? ""} onChange={(e) => setForm({ ...form, content: e.target.value })} />
           <div className="flex gap-2">
             <Button className="rounded-full font-bold" onClick={submit} disabled={loading}>
@@ -355,7 +366,6 @@ function PhotosAdmin() {
 function ReflectionsAdmin() {
   const [items, setItems] = useState<DbReflection[]>([]);
   const [form, setForm] = useState<ReflectionInput>(emptyReflection);
-  const [tagText, setTagText] = useState((emptyReflection.tags ?? []).join("，"));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -377,8 +387,9 @@ function ReflectionsAdmin() {
       author: row.author ?? "",
       image_url: row.image_url ?? "",
       tags: row.tags ?? [],
+      school_year: row.school_year ?? "",
+      location: row.location ?? "",
     });
-    setTagText((row.tags ?? []).join("，"));
   }
 
   async function uploadCover(files: FileList | null) {
@@ -401,6 +412,10 @@ function ReflectionsAdmin() {
       toast.error("請填寫標題與心得內容");
       return;
     }
+    if (!form.school_year || !form.location) {
+      toast.error("請選擇學年度與地點");
+      return;
+    }
     setLoading(true);
     try {
       const payload: ReflectionInput = {
@@ -409,7 +424,9 @@ function ReflectionsAdmin() {
         quote: form.quote?.trim() || null,
         author: form.author?.trim() || null,
         image_url: form.image_url?.trim() || null,
-        tags: parseTags(tagText),
+        school_year: form.school_year,
+        location: form.location,
+        tags: [form.school_year, form.location].filter(Boolean) as string[],
       };
       if (editingId) {
         await updateReflection(editingId, payload);
@@ -420,7 +437,6 @@ function ReflectionsAdmin() {
       }
       setEditingId(null);
       setForm(emptyReflection);
-      setTagText((emptyReflection.tags ?? []).join("，"));
       await refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "儲存失敗");
@@ -446,7 +462,38 @@ function ReflectionsAdmin() {
         <div className="text-lg font-black">{editingId ? "修改成果心得" : "新增成果心得"}</div>
         <div className="mt-4 space-y-3">
           <Input placeholder="心得標題" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          <Input placeholder="標籤（例：114學年度，青山國小）" value={tagText} onChange={(e) => setTagText(e.target.value)} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Select
+              value={form.school_year ?? ""}
+              onValueChange={(value) => setForm({ ...form, school_year: value })}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="選擇學年度" />
+              </SelectTrigger>
+              <SelectContent>
+                {SCHOOL_YEARS.map((year) => (
+                  <SelectItem key={year} value={year}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={form.location ?? ""}
+              onValueChange={(value) => setForm({ ...form, location: value })}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="選擇地點" />
+              </SelectTrigger>
+              <SelectContent>
+                {LOCATIONS.map((loc) => (
+                  <SelectItem key={loc} value={loc}>
+                    {loc}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Textarea placeholder="心得內容" rows={6} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
           <Textarea placeholder="重點金句" rows={3} value={form.quote ?? ""} onChange={(e) => setForm({ ...form, quote: e.target.value })} />
           <Input placeholder="學員署名（例：學員｜陳○○）" value={form.author ?? ""} onChange={(e) => setForm({ ...form, author: e.target.value })} />
@@ -468,7 +515,7 @@ function ReflectionsAdmin() {
               {editingId ? "儲存修改" : "新增心得"}
             </Button>
             {editingId && (
-              <Button variant="outline" className="rounded-full" onClick={() => { setEditingId(null); setForm(emptyReflection); setTagText((emptyReflection.tags ?? []).join("，")); }}>
+              <Button variant="outline" className="rounded-full" onClick={() => { setEditingId(null); setForm(emptyReflection); }}>
                 取消
               </Button>
             )}

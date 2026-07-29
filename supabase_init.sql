@@ -74,12 +74,20 @@ create table if not exists public.reflections (
   author text,
   image_url text,
   tags text[] not null default '{}',
+  school_year text,
+  location text,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
 
+-- 若資料表已存在（舊版本），補上學年度與地點欄位
+alter table public.reflections add column if not exists school_year text;
+alter table public.reflections add column if not exists location text;
+
 create index if not exists reflections_created_at_idx on public.reflections(created_at desc);
 create index if not exists reflections_tags_idx on public.reflections using gin(tags);
+create index if not exists reflections_school_year_idx on public.reflections(school_year);
+create index if not exists reflections_location_idx on public.reflections(location);
 
 drop trigger if exists trg_reflections_updated_at on public.reflections;
 create trigger trg_reflections_updated_at
@@ -236,7 +244,7 @@ values
   ('手作：花草小盆栽', current_date + interval '4 day', '青山國小自然教室', '材料由中心準備，也歡迎自帶喜歡的小植栽。')
 on conflict do nothing;
 
-insert into public.reflections (title, content, quote, author, image_url, tags)
+insert into public.reflections (title, content, quote, author, image_url, tags, school_year, location)
 values
   (
     '原來我也做得到',
@@ -244,6 +252,8 @@ values
     '慢慢來沒關係，只要願意開始，就已經很棒了。',
     '學員｜陳○○',
     null,
-    array['114學年度', '青山國小']
+    array['114學年度', '青山社區活動中心'],
+    '114學年度',
+    '青山社區活動中心'
   )
 on conflict do nothing;

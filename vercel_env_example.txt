@@ -1,0 +1,4 @@
+VITE_SUPABASE_URL=https://你的-project-ref.supabase.co
+VITE_SUPABASE_ANON_KEY=你的-anon-key
+VITE_SUPABASE_STORAGE_BUCKET=senior-center-images
+VITE_ADMIN_PASSWORD=114774

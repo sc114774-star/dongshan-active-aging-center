@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ChangeEvent, DragEvent } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -10,91 +10,32 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import MascotSticker from "@/components/MascotSticker";
-import type { DbEvent, DbPhoto, DbReflection } from "@/lib/types";
-import { LOCATIONS, SCHOOL_YEARS } from "@/lib/constants";
-import { listEventsBetween, listPhotos, listReflections } from "@/lib/db";
+import type { DbEvent, DbPhoto } from "@/lib/types";
+import { LOCATIONS } from "@/lib/constants";
+import { useAuth } from "@/lib/auth";
+import LoginPanel from "@/components/admin/LoginPanel";
+import ReflectionsAdmin from "@/components/admin/ReflectionsAdmin";
+import { AboutAdmin, AnnouncementsAdmin, QnaAdmin } from "@/components/admin/ContentAdmin";
+import { listEventsBetween, listPhotos } from "@/lib/db";
 import {
   createEvent,
   createPhoto,
-  createReflection,
   deleteEvent,
   deletePhoto,
   setPhotoApproved,
-  deleteReflection,
   updateEvent,
-  updateReflection,
   uploadImage,
   type EventInput,
-  type ReflectionInput,
 } from "@/lib/adminDb";
 import { Edit3, ImagePlus, Loader2, Plus, Save, Trash2 } from "lucide-react";
 
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? "114774";
-const emptyEvent: EventInput = { title: "", date: format(new Date(), "yyyy-MM-dd"), location: "", content: "", teacher: "" };
-const emptyReflection: ReflectionInput = {
-  title: "",
-  content: "",
-  quote: "",
-  author: "",
-  image_url: "",
-  tags: [],
-  school_year: "",
-  location: "",
-};
-
+const emptyEvent: EventInput = { title: "", date: format(new Date(), "yyyy-MM-dd"), location: "", content: "", teacher: "", community_id: "" };
 function hasSupabaseConfig() {
   return Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
 }
 
-function AdminLogin({ onLogin }: { onLogin: () => void }) {
-  const [pwd, setPwd] = useState("");
-
-  function login() {
-    if (pwd.trim() === ADMIN_PASSWORD) {
-      onLogin();
-      toast.success("已進入管理後台");
-    } else {
-      toast.error("密碼錯誤");
-    }
-  }
-
-  return (
-    <div className="mx-auto max-w-lg space-y-4 py-10">
-      <div className="flex items-center gap-3">
-        <MascotSticker variant="calendar" className="h-16 w-16" />
-        <div>
-          <div className="text-3xl font-black">管理後台</div>
-          <div className="mt-1 text-sm text-muted-foreground">請輸入固定密碼以進入。</div>
-        </div>
-      </div>
-
-      <Card className="rounded-4xl border-border bg-card p-6 shadow-sm">
-        <div className="text-sm font-bold">登入</div>
-        <div className="mt-3 flex gap-2">
-          <Input
-            type="password"
-            placeholder="請輸入密碼"
-            value={pwd}
-            onChange={(e) => setPwd(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") login();
-            }}
-          />
-          <Button className="rounded-full font-bold" onClick={login}>
-            進入
-          </Button>
-        </div>
-        <div className="mt-3 text-xs leading-6 text-muted-foreground">
-          注意：這是「靜態網站 + 固定密碼」簡易方案。為了符合此需求，Supabase SQL 會開放 anon
-          key 寫入；若未來要更嚴格權限，建議升級 Supabase Auth 或 Edge Functions。
-        </div>
-      </Card>
-    </div>
-  );
-}
-
 function EventsAdmin() {
+  const { communities, communityName } = useAuth();
   const [items, setItems] = useState<DbEvent[]>([]);
   const [form, setForm] = useState<EventInput>(emptyEvent);
   const [eventDates, setEventDates] = useState<string[]>([emptyEvent.date]);
@@ -111,14 +52,14 @@ function EventsAdmin() {
   }, []);
 
   function resetEventForm() {
-    setForm(emptyEvent);
+    setForm({ ...emptyEvent, community_id: form.community_id });
     setEventDates([format(new Date(), "yyyy-MM-dd")]);
     setEditingId(null);
   }
 
   function edit(row: DbEvent) {
     setEditingId(row.id);
-    setForm({ title: row.title, date: row.date, location: row.location ?? "", content: row.content ?? "", teacher: row.teacher ?? "" });
+    setForm({ title: row.title, date: row.date, location: row.location ?? "", content: row.content ?? "", teacher: row.teacher ?? "", community_id: row.community_id ?? "" });
     setEventDates([row.date]);
   }
 
@@ -143,9 +84,14 @@ function EventsAdmin() {
       toast.error("請填寫課程標題與至少一個日期");
       return;
     }
+    if (!form.community_id) {
+      toast.error("請選擇課程所屬社區");
+      return;
+    }
     setLoading(true);
     try {
       const basePayload = {
+        community_id: form.community_id,
         title: form.title.trim(),
         location: form.location?.trim() || null,
         content: form.content?.trim() || null,
@@ -187,6 +133,18 @@ function EventsAdmin() {
         <div className="mt-4 space-y-3">
           <Input placeholder="課程標題" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           <Input placeholder="授課老師（快速上傳頁會顯示）" value={form.teacher ?? ""} onChange={(e) => setForm({ ...form, teacher: e.target.value })} />
+          <Select value={form.community_id ?? ""} onValueChange={(value) => setForm({ ...form, community_id: value })}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="選擇所屬社區" />
+            </SelectTrigger>
+            <SelectContent>
+              {communities.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {editingId ? (
             <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           ) : (
@@ -258,7 +216,7 @@ function EventsAdmin() {
                   <div>
                     <Badge variant="secondary" className="rounded-full">{item.date}</Badge>
                     <div className="mt-2 font-black">{item.title}</div>
-                    <div className="mt-1 text-sm text-muted-foreground">{item.location || "未填地點"}</div>
+                    <div className="mt-1 text-sm text-muted-foreground">{[communityName(item.community_id), item.location || "未填地點"].filter(Boolean).join("・")}</div>
                   </div>
                   <div className="flex gap-1">
                     <Button size="icon" variant="outline" className="rounded-full" onClick={() => edit(item)}><Edit3 className="h-4 w-4" /></Button>
@@ -275,6 +233,8 @@ function EventsAdmin() {
 }
 
 function PhotosAdmin() {
+  const { isAdmin, myCommunityId, communities, communityName } = useAuth();
+  const [communityId, setCommunityId] = useState(myCommunityId ?? "");
   const [items, setItems] = useState<DbPhoto[]>([]);
   const [caption, setCaption] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -294,11 +254,15 @@ function PhotosAdmin() {
       toast.error("請拖拉或選擇圖片檔");
       return;
     }
+    if (!communityId) {
+      toast.error("請先選擇社區");
+      return;
+    }
     setUploading(true);
     try {
       for (const file of list) {
         const url = await uploadImage(file, "photos");
-        await createPhoto({ image_url: url, caption: caption.trim() || null });
+        await createPhoto({ image_url: url, caption: caption.trim() || null, community_id: communityId });
       }
       setCaption("");
       toast.success(`已上傳 ${list.length} 張照片`);
@@ -337,10 +301,30 @@ function PhotosAdmin() {
     }
   }
 
+  const visibleItems = isAdmin ? items : items.filter((p) => p.community_id === myCommunityId);
+
   return (
     <div className="space-y-4">
       <Card className="rounded-4xl p-5">
         <div className="text-lg font-black">拖拉上傳圖片</div>
+        {isAdmin ? (
+          <div className="mt-4">
+            <Select value={communityId} onValueChange={setCommunityId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="選擇照片所屬社區" />
+              </SelectTrigger>
+              <SelectContent>
+                {communities.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <div className="mt-2 text-sm text-muted-foreground">照片將發佈到「{communityName(myCommunityId)}」。</div>
+        )}
         <Input className="mt-4" placeholder="照片說明（可留空，多張上傳會共用此說明）" value={caption} onChange={(e) => setCaption(e.target.value)} />
         <div
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -360,11 +344,12 @@ function PhotosAdmin() {
       </Card>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((p) => (
+        {visibleItems.map((p) => (
           <Card key={p.id} className="overflow-hidden rounded-4xl">
             <img src={p.image_url} alt={p.caption ?? "活動照片"} className="aspect-[4/3] w-full object-cover" />
             <div className="p-3">
               <div className="line-clamp-1 text-sm font-bold">{p.caption || "活動花絮"}</div>
+              {isAdmin && p.community_id && <div className="text-xs text-muted-foreground">{communityName(p.community_id)}</div>}
               <Badge variant={p.is_approved === false ? "destructive" : "secondary"} className="mt-2 rounded-full">
                 {p.is_approved === false ? "待審核" : "已公開"}
               </Badge>
@@ -382,213 +367,59 @@ function PhotosAdmin() {
   );
 }
 
-function ReflectionsAdmin() {
-  const [items, setItems] = useState<DbReflection[]>([]);
-  const [form, setForm] = useState<ReflectionInput>(emptyReflection);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-
-  async function refresh() {
-    setItems(await listReflections());
-  }
-
-  useEffect(() => {
-    refresh().catch(() => toast.error("心得資料讀取失敗"));
-  }, []);
-
-  function edit(row: DbReflection) {
-    setEditingId(row.id);
-    setForm({
-      title: row.title,
-      content: row.content,
-      quote: row.quote ?? "",
-      author: row.author ?? "",
-      image_url: row.image_url ?? "",
-      tags: row.tags ?? [],
-      school_year: row.school_year ?? "",
-      location: row.location ?? "",
-    });
-  }
-
-  async function uploadCover(files: FileList | null) {
-    const file = files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const url = await uploadImage(file, "reflections");
-      setForm((f) => ({ ...f, image_url: url }));
-      toast.success("大圖已上傳");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "上傳失敗");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function submit() {
-    if (!form.title?.trim() || !form.content?.trim()) {
-      toast.error("請填寫標題與心得內容");
-      return;
-    }
-    if (!form.school_year || !form.location) {
-      toast.error("請選擇學年度與地點");
-      return;
-    }
-    setLoading(true);
-    try {
-      const payload: ReflectionInput = {
-        title: form.title.trim(),
-        content: form.content.trim(),
-        quote: form.quote?.trim() || null,
-        author: form.author?.trim() || null,
-        image_url: form.image_url?.trim() || null,
-        school_year: form.school_year,
-        location: form.location,
-        tags: [form.school_year, form.location].filter(Boolean) as string[],
-      };
-      if (editingId) {
-        await updateReflection(editingId, payload);
-        toast.success("心得已更新");
-      } else {
-        await createReflection(payload);
-        toast.success("心得已新增");
-      }
-      setEditingId(null);
-      setForm(emptyReflection);
-      await refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "儲存失敗");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function remove(id: string) {
-    if (!confirm("確定刪除此心得？")) return;
-    try {
-      await deleteReflection(id);
-      toast.success("心得已刪除");
-      await refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "刪除失敗");
-    }
-  }
-
-  return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
-      <Card className="rounded-4xl p-5">
-        <div className="text-lg font-black">{editingId ? "修改成果心得" : "新增成果心得"}</div>
-        <div className="mt-4 space-y-3">
-          <Input placeholder="心得標題" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Select
-              value={form.school_year ?? ""}
-              onValueChange={(value) => setForm({ ...form, school_year: value })}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="選擇學年度" />
-              </SelectTrigger>
-              <SelectContent>
-                {SCHOOL_YEARS.map((year) => (
-                  <SelectItem key={year} value={year}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={form.location ?? ""}
-              onValueChange={(value) => setForm({ ...form, location: value })}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="選擇地點" />
-              </SelectTrigger>
-              <SelectContent>
-                {LOCATIONS.map((loc) => (
-                  <SelectItem key={loc} value={loc}>
-                    {loc}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <Textarea placeholder="心得內容" rows={6} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
-          <Textarea placeholder="重點金句" rows={3} value={form.quote ?? ""} onChange={(e) => setForm({ ...form, quote: e.target.value })} />
-          <Input placeholder="學員署名（例：學員｜陳○○）" value={form.author ?? ""} onChange={(e) => setForm({ ...form, author: e.target.value })} />
-          <div className="rounded-3xl border border-border bg-secondary/25 p-4">
-            <div className="text-sm font-bold">上傳左側 4:3 大圖</div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <label className="inline-flex cursor-pointer items-center rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-sm">
-                {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImagePlus className="mr-2 h-4 w-4" />}
-                選擇大圖
-                <input className="hidden" type="file" accept="image/*" onChange={(e) => uploadCover(e.target.files)} />
-              </label>
-              {form.image_url && <Badge variant="secondary" className="rounded-full">已設定圖片</Badge>}
-            </div>
-            {form.image_url && <img src={form.image_url} alt="心得大圖預覽" className="mt-3 aspect-[4/3] w-full max-w-sm rounded-3xl object-cover" />}
-          </div>
-          <div className="flex gap-2">
-            <Button className="rounded-full font-bold" onClick={submit} disabled={loading}>
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              {editingId ? "儲存修改" : "新增心得"}
-            </Button>
-            {editingId && (
-              <Button variant="outline" className="rounded-full" onClick={() => { setEditingId(null); setForm(emptyReflection); }}>
-                取消
-              </Button>
-            )}
-          </div>
-        </div>
-      </Card>
-
-      <Card className="rounded-4xl p-5">
-        <div className="text-lg font-black">心得列表</div>
-        <div className="mt-4 space-y-3">
-          {items.length === 0 ? (
-            <div className="rounded-3xl bg-muted p-4 text-sm text-muted-foreground">尚無心得。</div>
-          ) : (
-            items.map((item) => (
-              <div key={item.id} className="rounded-3xl border border-border bg-background p-4">
-                <div className="font-black">{item.title}</div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {(item.tags ?? []).map((t) => <Badge key={t} variant="secondary" className="rounded-full">{t}</Badge>)}
-                </div>
-                <div className="mt-3 flex gap-1">
-                  <Button size="sm" variant="outline" className="rounded-full" onClick={() => edit(item)}><Edit3 className="mr-2 h-4 w-4" />修改</Button>
-                  <Button size="sm" variant="destructive" className="rounded-full" onClick={() => remove(item.id)}><Trash2 className="mr-2 h-4 w-4" />刪除</Button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </Card>
-    </div>
-  );
-}
-
 export default function Admin() {
-  const storageKey = useMemo(() => "ds-aac-admin-authed", []);
-  const [authed, setAuthed] = useState(() => {
-    try {
-      return localStorage.getItem(storageKey) === "1";
-    } catch {
-      return false;
-    }
-  });
+  const { loading, profile, isAdmin, myCommunityId, communityName, signOut } = useAuth();
 
-  function onLogin() {
-    localStorage.setItem(storageKey, "1");
-    setAuthed(true);
-  }
-
-  function logout() {
-    localStorage.removeItem(storageKey);
-    setAuthed(false);
+  async function logout() {
+    await signOut();
     toast.success("已登出");
   }
 
-  if (!authed) return <AdminLogin onLogin={onLogin} />;
+  if (!hasSupabaseConfig()) {
+    return (
+      <Card className="rounded-4xl border-primary/25 bg-primary/10 p-4 text-sm leading-7">
+        尚未設定 Supabase 環境變數，因此後台無法登入或寫入資料。請在 Vercel 設定
+        <code className="mx-1 rounded bg-background px-1">VITE_SUPABASE_URL</code>
+        與
+        <code className="mx-1 rounded bg-background px-1">VITE_SUPABASE_ANON_KEY</code>。
+      </Card>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!profile) return <LoginPanel />;
+
+  // 已登入，但帳號尚未被設定角色／社區
+  if (!isAdmin && !myCommunityId) {
+    return (
+      <Card className="mx-auto max-w-lg space-y-3 rounded-4xl p-6">
+        <div className="text-lg font-black">帳號尚未完成設定</div>
+        <div className="text-sm text-muted-foreground">此帳號還沒有指定角色或所屬社區，請聯絡總管理員協助設定。</div>
+        <Button variant="outline" className="rounded-full font-bold" onClick={logout}>登出</Button>
+      </Card>
+    );
+  }
+
+  const tabs = isAdmin
+    ? [
+        { value: "events", label: "課程行事曆", node: <EventsAdmin /> },
+        { value: "photos", label: "照片管理", node: <PhotosAdmin /> },
+        { value: "reflections", label: "成果心得", node: <ReflectionsAdmin /> },
+        { value: "announcements", label: "活動公告", node: <AnnouncementsAdmin /> },
+        { value: "qna", label: "Q&A頁面", node: <QnaAdmin /> },
+        { value: "about", label: "認識中心", node: <AboutAdmin /> },
+      ]
+    : [
+        { value: "photos", label: "照片管理", node: <PhotosAdmin /> },
+        { value: "reflections", label: "成果心得", node: <ReflectionsAdmin /> },
+      ];
 
   return (
     <div className="space-y-5">
@@ -596,31 +427,22 @@ export default function Admin() {
         <div>
           <div className="text-3xl font-black">管理後台</div>
           <div className="mt-2 text-sm text-muted-foreground">
-            管理課程行事曆、活動花絮照片與成果心得。
+            目前登入：{isAdmin ? "總管理員" : communityName(myCommunityId)}
           </div>
         </div>
         <Button variant="outline" className="rounded-full font-bold" onClick={logout}>登出</Button>
       </div>
 
-      {!hasSupabaseConfig() && (
-        <Card className="rounded-4xl border-primary/25 bg-primary/10 p-4 text-sm leading-7">
-          尚未設定 Supabase 環境變數，因此後台無法真正寫入資料。請在 Vercel 設定
-          <code className="mx-1 rounded bg-background px-1">VITE_SUPABASE_URL</code>
-          與
-          <code className="mx-1 rounded bg-background px-1">VITE_SUPABASE_ANON_KEY</code>。
-        </Card>
-      )}
-
-      <Tabs defaultValue="events" className="space-y-4">
-        <TabsList className="grid h-auto w-full grid-cols-3 rounded-3xl bg-secondary/60 p-1">
-          <TabsTrigger value="events" className="rounded-2xl font-bold">課程行事曆</TabsTrigger>
-          <TabsTrigger value="photos" className="rounded-2xl font-bold">照片管理</TabsTrigger>
-          <TabsTrigger value="reflections" className="rounded-2xl font-bold">成果心得</TabsTrigger>
+      <Tabs defaultValue={tabs[0].value} className="space-y-4">
+        <TabsList className={`grid h-auto w-full rounded-3xl bg-secondary/60 p-1 ${isAdmin ? "grid-cols-3 lg:grid-cols-6" : "grid-cols-2"}`}>
+          {tabs.map((t) => (
+            <TabsTrigger key={t.value} value={t.value} className="rounded-2xl font-bold">{t.label}</TabsTrigger>
+          ))}
         </TabsList>
         <Separator />
-        <TabsContent value="events"><EventsAdmin /></TabsContent>
-        <TabsContent value="photos"><PhotosAdmin /></TabsContent>
-        <TabsContent value="reflections"><ReflectionsAdmin /></TabsContent>
+        {tabs.map((t) => (
+          <TabsContent key={t.value} value={t.value}>{t.node}</TabsContent>
+        ))}
       </Tabs>
     </div>
   );

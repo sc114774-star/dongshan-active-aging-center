@@ -10,6 +10,7 @@ export type EventInput = {
   location?: string | null;
   content?: string | null;
   teacher?: string | null;
+  community_id?: string | null;
 };
 
 export type ReflectionInput = {
@@ -19,8 +20,8 @@ export type ReflectionInput = {
   author?: string | null;
   image_url?: string | null;
   tags?: string[] | null;
-  school_year?: string | null;
-  location?: string | null;
+  community_id?: string | null;
+  course_id?: string | null;
 };
 
 export async function createEvent(input: EventInput) {
@@ -40,7 +41,7 @@ export async function deleteEvent(id: string) {
   if (error) throw error;
 }
 
-export async function createPhoto(input: { image_url: string; caption?: string | null; is_approved?: boolean }) {
+export async function createPhoto(input: { image_url: string; caption?: string | null; is_approved?: boolean; community_id?: string | null }) {
   // 後台自己上傳的照片預設直接核准；快速上傳頁則一律為 false
   const { data, error } = await supabase
     .from("photos")

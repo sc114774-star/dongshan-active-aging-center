@@ -10,13 +10,22 @@ const STORAGE_BUCKET = import.meta.env.VITE_SUPABASE_STORAGE_BUCKET ?? "senior-c
 type Center = { id: string; name: string; slug: string };
 type Course = { id: string; title: string; teacher: string | null };
 
-// 網址可寫成 https://網站/?center=qingshan#/upload 或 https://網站/#/upload?center=qingshan
+// 網址可寫成 https://網站/#/upload?center=qingshan 或 https://網站/?center=qingshan#/upload
+// 直接用正規表示式掃整條網址（含 # 之後的部分），並先解碼 %3F 這類被轉碼的符號；
+// 同時保留載入當下的原始網址，避免路由初始化後網址被改寫而抓不到。
+const INITIAL_HREF = typeof window !== "undefined" ? window.location.href : "";
+
 function readCenterParam(): string {
-  const fromSearch = new URLSearchParams(window.location.search).get("center");
-  if (fromSearch) return fromSearch.trim();
-  const hash = window.location.hash;
-  const q = hash.indexOf("?");
-  if (q >= 0) return new URLSearchParams(hash.slice(q + 1)).get("center")?.trim() ?? "";
+  for (const href of [window.location.href, INITIAL_HREF]) {
+    let text = href;
+    try {
+      text = decodeURIComponent(href);
+    } catch {
+      /* 保留原字串 */
+    }
+    const m = text.match(/[?&]center=([^&#\s]+)/i);
+    if (m) return m[1].trim();
+  }
   return "";
 }
 
@@ -97,9 +106,9 @@ export default function QuickUpload() {
     let cancelled = false;
     (async () => {
       try {
-        const { data: , error } = await supabase.from("").select("id,name,slug");
+        const { data: communities, error } = await supabase.from("communities").select("id,name,slug");
         if (error) throw error;
-        const found = ( ?? []).find((c) => c.slug.toLowerCase() === centerParam.toLowerCase());
+        const found = (communities ?? []).find((c) => c.slug.toLowerCase() === centerParam.toLowerCase());
         if (!found) {
           if (!cancelled) setLoadError("找不到這個據點，請確認連結是否正確。");
           return;
@@ -193,6 +202,7 @@ export default function QuickUpload() {
     return (
       <div className={`${shell} items-center justify-center p-8 text-center`}>
         <div className="text-5xl font-black leading-tight">請使用專屬連結進入</div>
+        <div className="mt-8 break-all text-xs text-muted-foreground">目前網址：{window.location.href}</div>
       </div>
     );
   }

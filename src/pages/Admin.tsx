@@ -20,6 +20,7 @@ import {
   createReflection,
   deleteEvent,
   deletePhoto,
+  setPhotoApproved,
   deleteReflection,
   updateEvent,
   updateReflection,
@@ -30,7 +31,7 @@ import {
 import { Edit3, ImagePlus, Loader2, Plus, Save, Trash2 } from "lucide-react";
 
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? "114774";
-const emptyEvent: EventInput = { title: "", date: format(new Date(), "yyyy-MM-dd"), location: "", content: "" };
+const emptyEvent: EventInput = { title: "", date: format(new Date(), "yyyy-MM-dd"), location: "", content: "", teacher: "" };
 const emptyReflection: ReflectionInput = {
   title: "",
   content: "",
@@ -117,7 +118,7 @@ function EventsAdmin() {
 
   function edit(row: DbEvent) {
     setEditingId(row.id);
-    setForm({ title: row.title, date: row.date, location: row.location ?? "", content: row.content ?? "" });
+    setForm({ title: row.title, date: row.date, location: row.location ?? "", content: row.content ?? "", teacher: row.teacher ?? "" });
     setEventDates([row.date]);
   }
 
@@ -148,6 +149,7 @@ function EventsAdmin() {
         title: form.title.trim(),
         location: form.location?.trim() || null,
         content: form.content?.trim() || null,
+        teacher: form.teacher?.trim() || null,
       };
       if (editingId) {
         await updateEvent(editingId, { ...basePayload, date: dates[0] });
@@ -184,6 +186,7 @@ function EventsAdmin() {
         <div className="text-lg font-black">{editingId ? "修改課程" : "新增課程"}</div>
         <div className="mt-4 space-y-3">
           <Input placeholder="課程標題" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <Input placeholder="授課老師（快速上傳頁會顯示）" value={form.teacher ?? ""} onChange={(e) => setForm({ ...form, teacher: e.target.value })} />
           {editingId ? (
             <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           ) : (
@@ -313,6 +316,16 @@ function PhotosAdmin() {
     handleFiles(e.dataTransfer.files);
   }
 
+  async function toggleApproved(p: DbPhoto) {
+    try {
+      await setPhotoApproved(p.id, !(p.is_approved ?? true));
+      toast.success(p.is_approved === false ? "已核准，前台可見" : "已改為待審，前台隱藏");
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "更新失敗");
+    }
+  }
+
   async function remove(id: string) {
     if (!confirm("確定刪除此照片紀錄？（不會自動刪除 Storage 檔案）")) return;
     try {
@@ -352,7 +365,13 @@ function PhotosAdmin() {
             <img src={p.image_url} alt={p.caption ?? "活動照片"} className="aspect-[4/3] w-full object-cover" />
             <div className="p-3">
               <div className="line-clamp-1 text-sm font-bold">{p.caption || "活動花絮"}</div>
-              <Button variant="destructive" size="sm" className="mt-3 rounded-full" onClick={() => remove(p.id)}>
+              <Badge variant={p.is_approved === false ? "destructive" : "secondary"} className="mt-2 rounded-full">
+                {p.is_approved === false ? "待審核" : "已公開"}
+              </Badge>
+              <Button variant="outline" size="sm" className="ml-2 mt-3 rounded-full" onClick={() => toggleApproved(p)}>
+                {p.is_approved === false ? "核准公開" : "取消公開"}
+              </Button>
+              <Button variant="destructive" size="sm" className="ml-2 mt-3 rounded-full" onClick={() => remove(p.id)}>
                 <Trash2 className="mr-2 h-4 w-4" />刪除紀錄
               </Button>
             </div>

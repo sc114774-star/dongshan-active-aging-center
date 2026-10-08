@@ -9,6 +9,7 @@ export type EventInput = {
   date: string;
   location?: string | null;
   content?: string | null;
+  teacher?: string | null;
 };
 
 export type ReflectionInput = {
@@ -39,10 +40,20 @@ export async function deleteEvent(id: string) {
   if (error) throw error;
 }
 
-export async function createPhoto(input: { image_url: string; caption?: string | null }) {
-  const { data, error } = await supabase.from("photos").insert(input).select().single();
+export async function createPhoto(input: { image_url: string; caption?: string | null; is_approved?: boolean }) {
+  // 後台自己上傳的照片預設直接核准；快速上傳頁則一律為 false
+  const { data, error } = await supabase
+    .from("photos")
+    .insert({ is_approved: true, ...input })
+    .select()
+    .single();
   if (error) throw error;
   return data as DbPhoto;
+}
+
+export async function setPhotoApproved(id: string, approved: boolean) {
+  const { error } = await supabase.from("photos").update({ is_approved: approved }).eq("id", id);
+  if (error) throw error;
 }
 
 export async function deletePhoto(id: string) {

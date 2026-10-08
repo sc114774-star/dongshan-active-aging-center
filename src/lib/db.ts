@@ -10,7 +10,7 @@ export async function listPhotos(): Promise<DbPhoto[]> {
   if (!hasSupabaseConfig()) return fallbackPhotos;
   const { data, error } = await supabase
     .from("photos")
-    .select("id,image_url,caption,created_at")
+    .select("id,image_url,caption,is_approved,community_id,event_id,created_at")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as DbPhoto[];
@@ -33,7 +33,7 @@ export async function listEventsBetween(startYmd: string, endYmd: string): Promi
 
   const { data, error } = await supabase
     .from("events")
-    .select("id,title,date,location,content,created_at,updated_at")
+    .select("id,title,date,location,content,teacher,community_id,created_at,updated_at")
     .gte("date", startYmd)
     .lte("date", endYmd)
     .order("date", { ascending: true });

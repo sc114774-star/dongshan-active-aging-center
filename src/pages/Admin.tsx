@@ -119,7 +119,7 @@ function EventsAdmin() {
     }
   }
 
-  async function remove(p: DbPhoto) {
+  async function remove(id: string) {
     if (!confirm("確定刪除此課程？")) return;
     try {
       await deleteEvent(id);
@@ -305,7 +305,7 @@ function PhotosAdmin() {
     }
   }
 
-  async function remove(id: string) {
+  async function remove(p: DbPhoto) {
     if (!confirm("確定刪除這張照片？照片檔案也會一併刪除。")) return;
     try {
       await deletePhoto(p);

@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { supabase } from "@/lib/supabase";
-import type { DbEvent, DbPhoto, DbReflection } from "@/lib/types";
+import type { DbEvent, DbIntroImage, DbPhoto, DbReflection } from "@/lib/types";
 
 const STORAGE_BUCKET = import.meta.env.VITE_SUPABASE_STORAGE_BUCKET ?? "senior-center-images";
 
@@ -41,7 +41,7 @@ export async function deleteEvent(id: string) {
   if (error) throw error;
 }
 
-export async function createPhoto(input: { image_url: string; caption?: string | null; is_approved?: boolean; community_id?: string | null }) {
+export async function createPhoto(input: { image_url: string; caption?: string | null; is_approved?: boolean; community_id?: string | null; event_id?: string | null }) {
   // 後台自己上傳的照片預設直接核准；快速上傳頁則一律為 false
   const { data, error } = await supabase
     .from("photos")
@@ -57,9 +57,42 @@ export async function setPhotoApproved(id: string, approved: boolean) {
   if (error) throw error;
 }
 
-export async function deletePhoto(id: string) {
-  const { error } = await supabase.from("photos").delete().eq("id", id);
+// 由公開網址推回 Storage 內的檔案路徑
+function storagePathFromUrl(url: string) {
+  const marker = `/${STORAGE_BUCKET}/`;
+  const i = url.indexOf(marker);
+  return i === -1 ? null : decodeURIComponent(url.slice(i + marker.length).split("?")[0]);
+}
+
+async function removeStorageFile(url: string) {
+  const path = storagePathFromUrl(url);
+  if (path) await supabase.storage.from(STORAGE_BUCKET).remove([path]);
+}
+
+export async function setPhotoEvent(id: string, eventId: string | null, caption?: string | null) {
+  const patch: { event_id: string | null; caption?: string | null } = { event_id: eventId };
+  if (caption !== undefined) patch.caption = caption;
+  const { error } = await supabase.from("photos").update(patch).eq("id", id);
   if (error) throw error;
+}
+
+// 刪除資料列，並一併刪除 Storage 內的圖片檔
+export async function deletePhoto(photo: { id: string; image_url: string }) {
+  const { error } = await supabase.from("photos").delete().eq("id", photo.id);
+  if (error) throw error;
+  await removeStorageFile(photo.image_url).catch(() => undefined);
+}
+
+export async function createIntroImage(input: { image_url: string; caption?: string | null; community_id?: string | null }) {
+  const { data, error } = await supabase.from("site_intro_images").insert(input).select().single();
+  if (error) throw error;
+  return data as DbIntroImage;
+}
+
+export async function deleteIntroImage(img: { id: string; image_url: string }) {
+  const { error } = await supabase.from("site_intro_images").delete().eq("id", img.id);
+  if (error) throw error;
+  await removeStorageFile(img.image_url).catch(() => undefined);
 }
 
 export async function createReflection(input: ReflectionInput) {
@@ -84,7 +117,7 @@ export async function deleteReflection(id: string) {
   if (error) throw error;
 }
 
-export async function uploadImage(file: File, folder: "photos" | "reflections") {
+export async function uploadImage(file: File, folder: "photos" | "reflections" | "intro") {
   if (!file.type.startsWith("image/")) {
     throw new Error("請上傳圖片檔案");
   }

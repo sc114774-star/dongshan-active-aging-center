@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { DbEvent, DbPhoto, DbReflection } from "@/lib/types";
+import type { DbCourse, DbEvent, DbIntroImage, DbPhoto, DbReflection } from "@/lib/types";
 import { fallbackEvents, fallbackPhotos, fallbackReflections } from "@/lib/fallback";
 
 function hasSupabaseConfig() {
@@ -40,4 +40,30 @@ export async function listEventsBetween(startYmd: string, endYmd: string): Promi
 
   if (error) throw error;
   return (data ?? []) as DbEvent[];
+}
+
+export async function listAllCourses(): Promise<DbCourse[]> {
+  if (!hasSupabaseConfig()) return [];
+  const { data, error } = await supabase
+    .from("events")
+    .select("id,title,date,community_id")
+    .order("date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as DbCourse[];
+}
+
+export async function listIntroImages(): Promise<DbIntroImage[]> {
+  if (!hasSupabaseConfig()) return [];
+  const { data, error } = await supabase
+    .from("site_intro_images")
+    .select("id,community_id,image_url,caption,created_at")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as DbIntroImage[];
+}
+
+export async function getAboutPage(): Promise<{ title: string; content: string } | null> {
+  if (!hasSupabaseConfig()) return null;
+  const { data } = await supabase.from("about_page").select("title,content").eq("id", 1).maybeSingle();
+  return data ?? null;
 }

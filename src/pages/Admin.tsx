@@ -10,24 +10,28 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import type { DbEvent, DbPhoto } from "@/lib/types";
+import type { DbCourse, DbEvent, DbPhoto } from "@/lib/types";
 import { LOCATIONS } from "@/lib/constants";
 import { useAuth } from "@/lib/auth";
 import LoginPanel from "@/components/admin/LoginPanel";
 import ReflectionsAdmin from "@/components/admin/ReflectionsAdmin";
+import IntroAdmin from "@/components/admin/IntroAdmin";
 import { AboutAdmin, AnnouncementsAdmin, QnaAdmin } from "@/components/admin/ContentAdmin";
-import { listEventsBetween, listPhotos } from "@/lib/db";
+import { listAllCourses, listEventsBetween, listPhotos } from "@/lib/db";
 import {
   createEvent,
   createPhoto,
   deleteEvent,
   deletePhoto,
   setPhotoApproved,
+  setPhotoEvent,
   updateEvent,
   uploadImage,
   type EventInput,
 } from "@/lib/adminDb";
 import { Edit3, ImagePlus, Loader2, Plus, Save, Trash2 } from "lucide-react";
+
+const NO_COURSE = "none"; // Select 不接受空字串，用此值代表「不指定課程」
 
 const emptyEvent: EventInput = { title: "", date: format(new Date(), "yyyy-MM-dd"), location: "", content: "", teacher: "", community_id: "" };
 function hasSupabaseConfig() {
@@ -115,7 +119,7 @@ function EventsAdmin() {
     }
   }
 
-  async function remove(id: string) {
+  async function remove(p: DbPhoto) {
     if (!confirm("確定刪除此課程？")) return;
     try {
       await deleteEvent(id);
@@ -235,6 +239,8 @@ function EventsAdmin() {
 function PhotosAdmin() {
   const { isAdmin, myCommunityId, communities, communityName } = useAuth();
   const [communityId, setCommunityId] = useState(myCommunityId ?? "");
+  const [eventId, setEventId] = useState(NO_COURSE);
+  const [courses, setCourses] = useState<DbCourse[]>([]);
   const [items, setItems] = useState<DbPhoto[]>([]);
   const [caption, setCaption] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -246,7 +252,10 @@ function PhotosAdmin() {
 
   useEffect(() => {
     refresh().catch(() => toast.error("照片資料讀取失敗"));
+    listAllCourses().then(setCourses).catch(() => undefined);
   }, []);
+
+  const coursesOf = (cid: string | null | undefined) => courses.filter((c) => c.community_id === cid);
 
   async function handleFiles(files: FileList | File[]) {
     const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
@@ -262,7 +271,13 @@ function PhotosAdmin() {
     try {
       for (const file of list) {
         const url = await uploadImage(file, "photos");
-        await createPhoto({ image_url: url, caption: caption.trim() || null, community_id: communityId });
+        const course = courses.find((c) => c.id === eventId);
+        await createPhoto({
+          image_url: url,
+          caption: caption.trim() || course?.title || null,
+          community_id: communityId,
+          event_id: course ? course.id : null,
+        });
       }
       setCaption("");
       toast.success(`已上傳 ${list.length} 張照片`);
@@ -291,10 +306,10 @@ function PhotosAdmin() {
   }
 
   async function remove(id: string) {
-    if (!confirm("確定刪除此照片紀錄？（不會自動刪除 Storage 檔案）")) return;
+    if (!confirm("確定刪除這張照片？照片檔案也會一併刪除。")) return;
     try {
-      await deletePhoto(id);
-      toast.success("照片紀錄已刪除");
+      await deletePhoto(p);
+      toast.success("照片已刪除");
       await refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "刪除失敗");
@@ -309,7 +324,7 @@ function PhotosAdmin() {
         <div className="text-lg font-black">拖拉上傳圖片</div>
         {isAdmin ? (
           <div className="mt-4">
-            <Select value={communityId} onValueChange={setCommunityId}>
+            <Select value={communityId} onValueChange={(v) => { setCommunityId(v); setEventId(NO_COURSE); }}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="選擇照片所屬社區" />
               </SelectTrigger>
@@ -325,7 +340,25 @@ function PhotosAdmin() {
         ) : (
           <div className="mt-2 text-sm text-muted-foreground">照片將發佈到「{communityName(myCommunityId)}」。</div>
         )}
-        <Input className="mt-4" placeholder="照片說明（可留空，多張上傳會共用此說明）" value={caption} onChange={(e) => setCaption(e.target.value)} />
+        <div className="mt-4">
+          <Select value={eventId} onValueChange={setEventId} disabled={!communityId}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="選擇課程（可不選）" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_COURSE}>不指定課程</SelectItem>
+              {coursesOf(communityId).map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.date}　{c.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {communityId && coursesOf(communityId).length === 0 && (
+            <div className="mt-2 text-xs text-muted-foreground">這個社區還沒有課程，請先到「課程行事曆」新增。</div>
+          )}
+        </div>
+        <Input className="mt-4" placeholder="照片說明（可留空，預設使用課程名稱；多張上傳會共用）" value={caption} onChange={(e) => setCaption(e.target.value)} />
         <div
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
@@ -350,14 +383,39 @@ function PhotosAdmin() {
             <div className="p-3">
               <div className="line-clamp-1 text-sm font-bold">{p.caption || "活動花絮"}</div>
               {isAdmin && p.community_id && <div className="text-xs text-muted-foreground">{communityName(p.community_id)}</div>}
+              <Select
+                value={p.event_id ?? NO_COURSE}
+                onValueChange={async (v) => {
+                  try {
+                    const c = courses.find((x) => x.id === v);
+                    await setPhotoEvent(p.id, c ? c.id : null, c ? c.title : undefined);
+                    toast.success("已更新課程");
+                    await refresh();
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "更新失敗");
+                  }
+                }}
+              >
+                <SelectTrigger className="mt-2 w-full">
+                  <SelectValue placeholder="所屬課程" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_COURSE}>未分類（不指定課程）</SelectItem>
+                  {coursesOf(p.community_id).map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.date}　{c.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Badge variant={p.is_approved === false ? "destructive" : "secondary"} className="mt-2 rounded-full">
                 {p.is_approved === false ? "待審核" : "已公開"}
               </Badge>
               <Button variant="outline" size="sm" className="ml-2 mt-3 rounded-full" onClick={() => toggleApproved(p)}>
                 {p.is_approved === false ? "核准公開" : "取消公開"}
               </Button>
-              <Button variant="destructive" size="sm" className="ml-2 mt-3 rounded-full" onClick={() => remove(p.id)}>
-                <Trash2 className="mr-2 h-4 w-4" />刪除紀錄
+              <Button variant="destructive" size="sm" className="ml-2 mt-3 rounded-full" onClick={() => remove(p)}>
+                <Trash2 className="mr-2 h-4 w-4" />刪除照片
               </Button>
             </div>
           </Card>
@@ -415,6 +473,7 @@ export default function Admin() {
         { value: "announcements", label: "活動公告", node: <AnnouncementsAdmin /> },
         { value: "qna", label: "Q&A頁面", node: <QnaAdmin /> },
         { value: "about", label: "認識中心", node: <AboutAdmin /> },
+        { value: "intro", label: "據點介紹圖片", node: <IntroAdmin /> },
       ]
     : [
         { value: "photos", label: "照片管理", node: <PhotosAdmin /> },
@@ -434,7 +493,7 @@ export default function Admin() {
       </div>
 
       <Tabs defaultValue={tabs[0].value} className="space-y-4">
-        <TabsList className={`grid h-auto w-full rounded-3xl bg-secondary/60 p-1 ${isAdmin ? "grid-cols-3 lg:grid-cols-6" : "grid-cols-2"}`}>
+        <TabsList className={`grid h-auto w-full rounded-3xl bg-secondary/60 p-1 ${isAdmin ? "grid-cols-3 lg:grid-cols-7" : "grid-cols-2"}`}>
           {tabs.map((t) => (
             <TabsTrigger key={t.value} value={t.value} className="rounded-2xl font-bold">{t.label}</TabsTrigger>
           ))}

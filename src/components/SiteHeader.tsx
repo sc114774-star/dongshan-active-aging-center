@@ -9,11 +9,12 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { CalendarDays, Camera, HeartHandshake, Home, Menu, Sparkles } from "lucide-react";
+import { CalendarDays, Camera, HeartHandshake, Home, Info, Menu, Sparkles } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 const nav = [
   { href: "/", label: "首頁", icon: Home },
+  { href: "/intro", label: "介紹", icon: Info },
   { href: "/gallery", label: "花絮", icon: Camera },
   { href: "/calendar", label: "課程", icon: CalendarDays },
   { href: "/reflections", label: "心得", icon: HeartHandshake },

@@ -9,6 +9,7 @@ import { AuthProvider } from "@/lib/auth";
 import SiteLayout from "@/components/SiteLayout";
 
 import Home from "@/pages/Home";
+import Intro from "@/pages/Intro";
 import Gallery from "@/pages/Gallery";
 import CalendarPage from "@/pages/Calendar";
 import Reflections from "@/pages/Reflections";
@@ -26,6 +27,7 @@ function Routes() {
     <SiteLayout>
       <Switch>
         <Route path="/" component={Home} />
+        <Route path="/intro" component={Intro} />
         <Route path="/gallery" component={Gallery} />
         <Route path="/calendar" component={CalendarPage} />
         <Route path="/reflections" component={Reflections} />

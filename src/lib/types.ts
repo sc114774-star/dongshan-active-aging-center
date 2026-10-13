@@ -33,3 +33,18 @@ export type DbReflection = {
   created_at: string;
   updated_at: string;
 };
+
+export type DbIntroImage = {
+  id: string;
+  community_id: string | null;
+  image_url: string;
+  caption: string | null;
+  created_at: string;
+};
+
+export type DbCourse = {
+  id: string;
+  title: string;
+  date: string;
+  community_id: string | null;
+};

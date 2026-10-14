@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
-export type Community = { id: string; name: string; slug: string; login_email: string };
+export type Community = { id: string; name: string; slug: string; login_email: string; is_active?: boolean; display_order?: number };
 export type Profile = {
   id: string;
   role: "admin" | "community";
@@ -50,9 +50,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     supabase
       .from("communities")
-      .select("id,name,slug,login_email")
+      .select("*")
       .order("display_order", { ascending: true })
-      .then(({ data }) => setCommunities((data ?? []) as Community[]));
+      .then(({ data }) =>
+        setCommunities(((data ?? []) as Community[]).filter((c) => c.is_active !== false))
+      );
   }, []);
 
   // 取得登入者的角色與所屬社區（不要在 onAuthStateChange 內直接 await 查詢，避免卡死）

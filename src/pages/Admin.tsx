@@ -11,7 +11,8 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import type { DbCourse, DbEvent, DbPhoto } from "@/lib/types";
-import { LOCATIONS } from "@/lib/constants";
+import ScheduleImport from "@/components/admin/ScheduleImport";
+import SitesAdmin from "@/components/admin/SitesAdmin";
 import { useAuth } from "@/lib/auth";
 import LoginPanel from "@/components/admin/LoginPanel";
 import ReflectionsAdmin from "@/components/admin/ReflectionsAdmin";
@@ -39,7 +40,7 @@ function hasSupabaseConfig() {
 }
 
 function EventsAdmin() {
-  const { communities, communityName } = useAuth();
+  const { isAdmin, communities, communityName } = useAuth();
   const [items, setItems] = useState<DbEvent[]>([]);
   const [form, setForm] = useState<EventInput>(emptyEvent);
   const [eventDates, setEventDates] = useState<string[]>([emptyEvent.date]);
@@ -137,7 +138,16 @@ function EventsAdmin() {
         <div className="mt-4 space-y-3">
           <Input placeholder="課程標題" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           <Input placeholder="授課老師（快速上傳頁會顯示）" value={form.teacher ?? ""} onChange={(e) => setForm({ ...form, teacher: e.target.value })} />
-          <Select value={form.community_id ?? ""} onValueChange={(value) => setForm({ ...form, community_id: value })}>
+          <Select
+            value={form.community_id ?? ""}
+            onValueChange={(value) => {
+              // 地點預設跟著所屬據點；若已手動改過地點則不覆蓋
+              const prevName = communities.find((c) => c.id === form.community_id)?.name ?? "";
+              const nextName = communities.find((c) => c.id === value)?.name ?? "";
+              const keepLocation = form.location && form.location !== prevName;
+              setForm({ ...form, community_id: value, location: keepLocation ? form.location : nextName });
+            }}
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="選擇所屬社區" />
             </SelectTrigger>
@@ -178,21 +188,7 @@ function EventsAdmin() {
               </Button>
             </div>
           )}
-          <Select
-            value={form.location ?? ""}
-            onValueChange={(value) => setForm({ ...form, location: value })}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="選擇地點" />
-            </SelectTrigger>
-            <SelectContent>
-              {LOCATIONS.map((loc) => (
-                <SelectItem key={loc} value={loc}>
-                  {loc}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Input placeholder="上課地點（預設為所屬據點，可自行修改，例如：青山國小 活動中心）" value={form.location ?? ""} onChange={(e) => setForm({ ...form, location: e.target.value })} />
           <Textarea placeholder="課程內容 / 備註" rows={5} value={form.content ?? ""} onChange={(e) => setForm({ ...form, content: e.target.value })} />
           <div className="flex gap-2">
             <Button className="rounded-full font-bold" onClick={submit} disabled={loading}>
@@ -209,7 +205,10 @@ function EventsAdmin() {
       </Card>
 
       <Card className="rounded-4xl p-5">
-        <div className="text-lg font-black">課程列表</div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-lg font-black">課程列表</div>
+          {isAdmin && <ScheduleImport onDone={() => refresh().catch(() => undefined)} />}
+        </div>
         <div className="mt-4 space-y-2">
           {items.length === 0 ? (
             <div className="rounded-3xl bg-muted p-4 text-sm text-muted-foreground">尚無課程。</div>
@@ -474,6 +473,7 @@ export default function Admin() {
         { value: "qna", label: "Q&A頁面", node: <QnaAdmin /> },
         { value: "about", label: "認識中心", node: <AboutAdmin /> },
         { value: "intro", label: "據點介紹圖片", node: <IntroAdmin /> },
+        { value: "sites", label: "據點管理", node: <SitesAdmin /> },
       ]
     : [
         { value: "photos", label: "照片管理", node: <PhotosAdmin /> },
@@ -493,7 +493,7 @@ export default function Admin() {
       </div>
 
       <Tabs defaultValue={tabs[0].value} className="space-y-4">
-        <TabsList className={`grid h-auto w-full rounded-3xl bg-secondary/60 p-1 ${isAdmin ? "grid-cols-3 lg:grid-cols-7" : "grid-cols-2"}`}>
+        <TabsList className={`grid h-auto w-full rounded-3xl bg-secondary/60 p-1 ${isAdmin ? "grid-cols-3 lg:grid-cols-8" : "grid-cols-2"}`}>
           {tabs.map((t) => (
             <TabsTrigger key={t.value} value={t.value} className="rounded-2xl font-bold">{t.label}</TabsTrigger>
           ))}

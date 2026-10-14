@@ -106,9 +106,9 @@ export default function QuickUpload() {
     let cancelled = false;
     (async () => {
       try {
-        const { data: communities, error } = await supabase.from("communities").select("id,name,slug");
+        const { data: communities, error } = await supabase.from("communities").select("*");
         if (error) throw error;
-        const found = (communities ?? []).find((c) => c.slug.toLowerCase() === centerParam.toLowerCase());
+        const found = (communities ?? []).find((c) => c.slug.toLowerCase() === centerParam.toLowerCase() && c.is_active !== false);
         if (!found) {
           if (!cancelled) setLoadError("找不到這個據點，請確認連結是否正確。");
           return;

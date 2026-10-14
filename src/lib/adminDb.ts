@@ -30,6 +30,11 @@ export async function createEvent(input: EventInput) {
   return data as DbEvent;
 }
 
+export async function createEvents(inputs: EventInput[]) {
+  const { error } = await supabase.from("events").insert(inputs);
+  if (error) throw error;
+}
+
 export async function updateEvent(id: string, input: EventInput) {
   const { data, error } = await supabase.from("events").update(input).eq("id", id).select().single();
   if (error) throw error;

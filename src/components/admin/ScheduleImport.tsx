@@ -12,6 +12,7 @@ import { createEvents } from "@/lib/adminDb";
 import { listAllCourses } from "@/lib/db";
 import { matchSite, parseScheduleFile } from "@/lib/scheduleImport";
 import type { ParsedCourse } from "@/lib/scheduleImport";
+import { errMsg } from "@/lib/errors";
 
 const SKIP = "skip";
 
@@ -47,7 +48,7 @@ export default function ScheduleImport({ onDone }: { onDone: () => void }) {
       setOff(new Set());
     } catch (err) {
       setCourses([]);
-      toast.error(err instanceof Error ? err.message : "讀取失敗");
+      toast.error(errMsg(err, "讀取失敗"));
     } finally {
       setBusy(false);
     }
@@ -89,7 +90,7 @@ export default function ScheduleImport({ onDone }: { onDone: () => void }) {
       setFile(null);
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "匯入失敗");
+      toast.error(errMsg(err, "匯入失敗"));
     } finally {
       setBusy(false);
     }

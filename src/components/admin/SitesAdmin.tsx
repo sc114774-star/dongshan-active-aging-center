@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import type { Community } from "@/lib/auth";
+import { errMsg } from "@/lib/errors";
 
 // 總管理員專用：新增 / 改名 / 停用 / 排序據點，並可重設據點登入密碼
 export default function SitesAdmin() {
@@ -28,7 +29,7 @@ export default function SitesAdmin() {
     refresh().catch(() => toast.error("讀取據點失敗"));
   }, []);
 
-  const fail = (err: unknown) => toast.error(err instanceof Error ? err.message : "操作失敗");
+  const fail = (err: unknown) => toast.error(errMsg(err, "操作失敗"));
 
   async function rename(s: Community) {
     const name = (names[s.id] ?? "").trim();

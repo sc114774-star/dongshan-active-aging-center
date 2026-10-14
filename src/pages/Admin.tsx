@@ -31,6 +31,7 @@ import {
   type EventInput,
 } from "@/lib/adminDb";
 import { Edit3, ImagePlus, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { errMsg } from "@/lib/errors";
 
 const NO_COURSE = "none"; // Select 不接受空字串，用此值代表「不指定課程」
 
@@ -114,7 +115,7 @@ function EventsAdmin() {
       resetEventForm();
       await refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "儲存失敗");
+      toast.error(errMsg(err, "儲存失敗"));
     } finally {
       setLoading(false);
     }
@@ -127,7 +128,7 @@ function EventsAdmin() {
       toast.success("課程已刪除");
       await refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "刪除失敗");
+      toast.error(errMsg(err, "刪除失敗"));
     }
   }
 
@@ -282,7 +283,7 @@ function PhotosAdmin() {
       toast.success(`已上傳 ${list.length} 張照片`);
       await refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "上傳失敗");
+      toast.error(errMsg(err, "上傳失敗"));
     } finally {
       setUploading(false);
       setDragging(false);
@@ -300,7 +301,7 @@ function PhotosAdmin() {
       toast.success(p.is_approved === false ? "已核准，前台可見" : "已改為待審，前台隱藏");
       await refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "更新失敗");
+      toast.error(errMsg(err, "更新失敗"));
     }
   }
 
@@ -311,7 +312,7 @@ function PhotosAdmin() {
       toast.success("照片已刪除");
       await refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "刪除失敗");
+      toast.error(errMsg(err, "刪除失敗"));
     }
   }
 
@@ -391,7 +392,7 @@ function PhotosAdmin() {
                     toast.success("已更新課程");
                     await refresh();
                   } catch (err) {
-                    toast.error(err instanceof Error ? err.message : "更新失敗");
+                    toast.error(errMsg(err, "更新失敗"));
                   }
                 }}
               >

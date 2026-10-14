@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MascotSticker from "@/components/MascotSticker";
 import { ADMIN_TARGET, useAuth } from "@/lib/auth";
+import { errMsg } from "@/lib/errors";
 
 export default function LoginPanel() {
   const { communities, signIn } = useAuth();
@@ -23,7 +24,7 @@ export default function LoginPanel() {
       toast.success("登入成功");
       setPwd("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "登入失敗");
+      toast.error(errMsg(err, "登入失敗"));
     } finally {
       setBusy(false);
     }

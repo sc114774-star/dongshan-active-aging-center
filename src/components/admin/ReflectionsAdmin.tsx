@@ -20,6 +20,7 @@ import {
   type ReflectionInput,
 } from "@/lib/adminDb";
 import type { DbReflection } from "@/lib/types";
+import { errMsg } from "@/lib/errors";
 
 type CourseOption = { id: string; title: string; date: string; teacher: string | null };
 
@@ -141,7 +142,7 @@ export default function ReflectionsAdmin() {
       setForm((f) => ({ ...f, image_url: url }));
       toast.success("大圖已上傳");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "上傳失敗");
+      toast.error(errMsg(err, "上傳失敗"));
     } finally {
       setUploading(false);
     }
@@ -173,7 +174,7 @@ export default function ReflectionsAdmin() {
       setForm((f) => ({ ...f, content: data.content }));
       toast.success("已幫您寫好，請檢查並修改後再儲存");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "AI 生成失敗");
+      toast.error(errMsg(err, "AI 生成失敗"));
     } finally {
       setAiLoading(false);
     }
@@ -214,7 +215,7 @@ export default function ReflectionsAdmin() {
       resetForm();
       await refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "儲存失敗");
+      toast.error(errMsg(err, "儲存失敗"));
     } finally {
       setSaving(false);
     }
@@ -227,7 +228,7 @@ export default function ReflectionsAdmin() {
       toast.success("心得已刪除");
       await refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "刪除失敗");
+      toast.error(errMsg(err, "刪除失敗"));
     }
   }
 

@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { listIntroImages } from "@/lib/db";
 import { createIntroImage, deleteIntroImage, uploadImage } from "@/lib/adminDb";
 import type { DbIntroImage } from "@/lib/types";
+import { errMsg } from "@/lib/errors";
 
 const GENERAL = "general"; // 中心總覽（不屬於任何社區）
 
@@ -42,7 +43,7 @@ export default function IntroAdmin() {
       toast.success(`已上傳 ${list.length} 張介紹圖片`);
       await refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "上傳失敗");
+      toast.error(errMsg(err, "上傳失敗"));
     } finally {
       setUploading(false);
       setDragging(false);
@@ -61,7 +62,7 @@ export default function IntroAdmin() {
       toast.success("已刪除");
       await refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "刪除失敗");
+      toast.error(errMsg(err, "刪除失敗"));
     }
   }
 

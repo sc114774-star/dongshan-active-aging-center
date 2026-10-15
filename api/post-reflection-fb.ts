@@ -10,7 +10,6 @@ type Reflection = {
   id: string;
   title: string;
   content: string;
-  quote: string | null;
   author: string | null;
   image_url: string | null;
   community_id: string | null;
@@ -63,7 +62,6 @@ function buildMessage(r: Reflection, ev: { title: string; date: string; teacher:
   if (ev?.title) lines.push(`📖課程：${ev.title}`);
   if (site) lines.push(`📍據點：${site}`);
   lines.push("", "💬學員心得", r.content.trim());
-  if (r.quote?.trim()) lines.push("", `✨${r.quote.trim()}`);
   if (r.author?.trim()) lines.push("", `—— ${r.author.trim()}`);
   return lines.join("\n");
 }
@@ -100,7 +98,7 @@ export async function POST(request: Request) {
     const r = await getOne<Reflection>(
       "reflections",
       `id=eq.${encodeURIComponent(id)}`,
-      "id,title,content,quote,author,image_url,community_id,course_id,fb_post_id"
+      "id,title,content,author,image_url,community_id,course_id,fb_post_id"
     );
     if (!r) return json({ error: "找不到這則心得" }, 404);
 

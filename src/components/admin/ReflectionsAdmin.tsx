@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,12 +26,11 @@ type CourseOption = { id: string; title: string; date: string; teacher: string |
 type FormState = {
   title: string;
   content: string;
-  quote: string;
   author: string;
   image_url: string;
 };
 
-const emptyForm: FormState = { title: "", content: "", quote: "", author: "", image_url: "" };
+const emptyForm: FormState = { title: "", content: "", author: "", image_url: "" };
 
 const monthLabel = (ym: string) => `${ym.slice(0, 4)}年${Number(ym.slice(5, 7))}月`;
 
@@ -63,7 +61,7 @@ export default function ReflectionsAdmin() {
   const [courses, setCourses] = useState<CourseOption[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
 
-  const [guideOpen, setGuideOpen] = useState(false); // 「觀看操作範例」對話框
+  const [guideOpen, setGuideOpen] = useState(false); // 「觀看操作範例」展開 / 收合
   const [syncingId, setSyncingId] = useState<string | null>(null); // 正在同步到 FB 的心得
 
   const monthOptions = useMemo(() => buildMonthOptions(month || undefined), [month]);
@@ -118,7 +116,6 @@ export default function ReflectionsAdmin() {
     setForm({
       title: row.title,
       content: row.content,
-      quote: row.quote ?? "",
       author: row.author ?? "",
       image_url: row.image_url ?? "",
     });
@@ -219,7 +216,6 @@ export default function ReflectionsAdmin() {
       const payload: ReflectionInput = {
         title: form.title.trim(),
         content: form.content.trim(),
-        quote: form.quote.trim() || null,
         author: form.author.trim() || null,
         image_url: form.image_url.trim() || null,
         community_id: communityId,
@@ -345,12 +341,27 @@ export default function ReflectionsAdmin() {
               <Button type="button" className="rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-700" onClick={() => openAi("chatgpt")}>
                 🤖 使用 ChatGPT 修正 (備用)
               </Button>
-              <Button type="button" variant="outline" className="rounded-xl border-black/70 bg-white font-bold" onClick={() => setGuideOpen(true)}>
-                🎬 觀看操作範例
+              <Button type="button" variant="outline" className="rounded-xl border-black/70 bg-white font-bold" onClick={() => setGuideOpen((v) => !v)}>
+                {guideOpen ? "🔼 收起操作範例" : "🎬 觀看操作範例"}
               </Button>
             </div>
+            {guideOpen && (
+              <div className="mt-4 space-y-3">
+                <img src="/ai-fix-guide.jpg" alt="AI 文章修正：操作範例" className="h-auto w-full rounded-3xl border border-border bg-white" />
+                {[
+                  "在「心得內容」輸入草稿",
+                  "按 Monica / Gemini / ChatGPT 其中一個按鈕（內容會自動複製）",
+                  "在 AI 網站貼上並送出",
+                  "把修正後的文字複製回「心得內容」，檢查後再儲存",
+                ].map((text, i) => (
+                  <div key={text} className="flex items-center gap-3 rounded-2xl bg-white/80 px-4 py-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500 text-xl font-black text-white">{i + 1}</div>
+                    <div className="text-lg font-bold leading-snug">{text}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <Textarea placeholder="重點金句" rows={3} value={form.quote} onChange={(e) => setForm({ ...form, quote: e.target.value })} />
           <Input placeholder="學員署名（例：學員｜陳○○）" value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} />
 
           <div className="rounded-3xl border border-border bg-secondary/25 p-4">
@@ -419,18 +430,6 @@ export default function ReflectionsAdmin() {
         </div>
       </Card>
 
-      <Dialog open={guideOpen} onOpenChange={setGuideOpen}>
-        <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto rounded-4xl">
-          <DialogHeader>
-            <DialogTitle>AI 文章修正：操作範例</DialogTitle>
-            <DialogDescription>
-              1. 在「心得內容」輸入草稿　2. 按 Monica / Gemini / ChatGPT 其中一個按鈕（內容會自動複製）　3. 在 AI 網站貼上並送出　4. 把修正後的文字複製回「心得內容」，檢查後再儲存。
-            </DialogDescription>
-          </DialogHeader>
-          <img src="/accessibility-guide.png" alt="如何做出符合無障礙標準的文章" className="h-auto w-full rounded-3xl border border-border" />
-          <div className="text-xs text-muted-foreground">圖：製作符合無障礙標準文章的小技巧（網址改成文字說明、附圖請附替代文字、附檔使用中文檔名等）。</div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

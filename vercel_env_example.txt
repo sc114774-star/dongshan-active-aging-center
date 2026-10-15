@@ -2,3 +2,12 @@ VITE_SUPABASE_URL=https://你的-project-ref.supabase.co
 VITE_SUPABASE_ANON_KEY=你的-anon-key
 VITE_SUPABASE_STORAGE_BUCKET=senior-center-images
 VITE_ADMIN_PASSWORD=114774
+
+# ---- Facebook 自動發文（api/sync-fb.ts）。這些只放在 Vercel 的環境變數，不要加 VITE_ 前綴 ----
+WEBHOOK_SECRET=自訂一串很長的亂數
+SUPABASE_SERVICE_ROLE_KEY=你的-service-role-key
+FB_PAGE_ID=粉絲專頁ID
+FB_PAGE_ACCESS_TOKEN=粉絲專頁長期存取權杖
+# FB_GRAPH_VERSION=v25.0
+# FB_POST_MODE=per_course   （或 per_photo）
+# FB_DRY_RUN=true           （測試用：只回傳內容，不真的發文）

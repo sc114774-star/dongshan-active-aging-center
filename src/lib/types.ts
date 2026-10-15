@@ -30,6 +30,8 @@ export type DbReflection = {
   tags: string[] | null;
   community_id: string | null;
   course_id: string | null;
+  fb_post_id?: string | null;
+  fb_posted_at?: string | null;
   created_at: string;
   updated_at: string;
 };

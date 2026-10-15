@@ -1,5 +1,6 @@
 {
   "functions": {
-    "api/sync-fb.ts": { "maxDuration": 30 }
+    "api/sync-fb.ts": { "maxDuration": 30 },
+    "api/post-reflection-fb.ts": { "maxDuration": 30 }
   }
 }

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { FunctionsHttpError } from "@supabase/supabase-js";
-import { Edit3, ImagePlus, Loader2, Save, Trash2 } from "lucide-react";
+import { Edit3, ImagePlus, Loader2, Save, Share2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -63,9 +63,8 @@ export default function ReflectionsAdmin() {
   const [courses, setCourses] = useState<CourseOption[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
 
-  // AI 小幫手
-  const [keywords, setKeywords] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false); // 「觀看操作範例」對話框
+  const [syncingId, setSyncingId] = useState<string | null>(null); // 正在同步到 FB 的心得
 
   const monthOptions = useMemo(() => buildMonthOptions(month || undefined), [month]);
   const selectedCourse = courses.find((c) => c.id === courseId) ?? null;
@@ -109,7 +108,6 @@ export default function ReflectionsAdmin() {
   function resetForm() {
     setEditingId(null);
     setForm(emptyForm);
-    setKeywords("");
     setMonth("");
     setCourseId("");
     setCommunityId(myCommunityId ?? "");
@@ -148,35 +146,58 @@ export default function ReflectionsAdmin() {
     }
   }
 
-  async function aiWrite() {
-    if (!selectedCourse) {
-      toast.error("請先選擇課程");
+  // 外部 AI 修正：複製「提示語 + 目前的心得內容」，再開啟 AI 網站，貼上即可
+  const AI_SITES = {
+    monica: "https://monica.im/",
+    gemini: "https://gemini.google.com/app",
+    chatgpt: "https://chatgpt.com/",
+  } as const;
+
+  async function openAi(site: keyof typeof AI_SITES) {
+    const draft = form.content.trim();
+    if (!draft) {
+      toast.error("請先在下方「心得內容」輸入文字，再使用 AI 修正");
       return;
     }
-    if (!keywords.trim()) {
-      toast.error("請先輸入幾個心得關鍵字");
-      return;
-    }
-    setAiLoading(true);
+    window.open(AI_SITES[site], "_blank", "noopener"); // 先開分頁，避免被瀏覽器擋下
+    const prompt = [
+      "請幫我修正以下樂齡學習中心學員的心得文章：",
+      "・改成通順、沒有錯字的繁體中文，語氣親切自然，適合長輩閱讀",
+      "・保留原意，不要新增不存在的內容",
+      "・內文如果有網址，請改成文字說明（不要直接貼網址）",
+      "",
+      "【原文】",
+      draft,
+    ].join("\n");
     try {
-      const { data, error } = await supabase.functions.invoke("generate-reflection", {
-        body: { courseName: selectedCourse.title, keywords: keywords.trim() },
+      await navigator.clipboard.writeText(prompt);
+      toast.success("已複製！請到剛開啟的 AI 網站貼上，取得結果後貼回「心得內容」");
+    } catch {
+      toast.error("複製失敗，請自行複製心得內容貼到 AI 網站");
+    }
+  }
+
+  // 手動把這則心得發佈到 Facebook 粉絲專頁（需要先設定好 api/post-reflection-fb）
+  async function syncFb(item: DbReflection) {
+    const again = Boolean(item.fb_post_id);
+    const ok = confirm(again ? "這則心得已經同步過了，確定要再發一次到 Facebook 嗎？" : "確定要把這則心得發佈到 Facebook 粉絲專頁嗎？");
+    if (!ok) return;
+    setSyncingId(item.id);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const res = await fetch("/api/post-reflection-fb", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session?.access_token ?? ""}` },
+        body: JSON.stringify({ id: item.id, force: again }),
       });
-      if (error) {
-        let msg = "AI 生成失敗，請稍後再試";
-        if (error instanceof FunctionsHttpError) {
-          const body = await error.context.json().catch(() => null);
-          if (body?.error) msg = body.error;
-        }
-        throw new Error(msg);
-      }
-      if (!data?.content) throw new Error("AI 沒有回傳內容，請重試");
-      setForm((f) => ({ ...f, content: data.content }));
-      toast.success("已幫您寫好，請檢查並修改後再儲存");
+      const body = (await res.json().catch(() => ({}))) as { error?: string; dryRun?: boolean };
+      if (!res.ok) throw new Error(body.error ?? `同步失敗（${res.status}）`);
+      toast.success(body.dryRun ? "測試模式：沒有真的發文" : "已發佈到 Facebook");
+      await refresh();
     } catch (err) {
-      toast.error(errMsg(err, "AI 生成失敗"));
+      toast.error(errMsg(err, "同步失敗"));
     } finally {
-      setAiLoading(false);
+      setSyncingId(null);
     }
   }
 
@@ -307,29 +328,28 @@ export default function ReflectionsAdmin() {
             </Select>
           </div>
 
-          <div className="rounded-3xl border border-border bg-secondary/25 p-4">
-            <div className="text-sm font-bold">AI 擴寫心得小幫手</div>
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <Input
-                placeholder="請輸入幾個簡單詞彙，如：做手工皂、老師很細心、很有成就感"
-                value={keywords}
-                onChange={(e) => setKeywords(e.target.value)}
-                disabled={aiLoading}
-              />
-              <Button type="button" className="shrink-0 rounded-full font-bold" onClick={aiWrite} disabled={aiLoading}>
-                {aiLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    生成中…
-                  </>
-                ) : (
-                  "✨ AI 幫我寫心得"
-                )}
+          <Textarea placeholder="心得內容" rows={6} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
+
+          <div className="rounded-3xl border border-amber-300 bg-amber-100/70 p-4">
+            <div className="text-base font-black">
+              ✨ AI 文章修正工具
+              <span className="font-medium">：先在上面輸入心得 → 按下方按鈕（會自動複製內容並開啟 AI）→ 貼上取得結果 → 把修正後的文字貼回「心得內容」。</span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" className="rounded-xl bg-sky-500 font-bold text-white hover:bg-sky-600" onClick={() => openAi("monica")}>
+                🤖 使用 Monica 修正 (推薦)
+              </Button>
+              <Button type="button" className="rounded-xl bg-green-700 font-bold text-white hover:bg-green-800" onClick={() => openAi("gemini")}>
+                🤖 使用 Gemini 修正 (推薦)
+              </Button>
+              <Button type="button" className="rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-700" onClick={() => openAi("chatgpt")}>
+                🤖 使用 ChatGPT 修正 (備用)
+              </Button>
+              <Button type="button" variant="outline" className="rounded-xl border-black/70 bg-white font-bold" onClick={() => setGuideOpen(true)}>
+                🎬 觀看操作範例
               </Button>
             </div>
           </div>
-
-          <Textarea placeholder="心得內容" rows={6} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
           <Textarea placeholder="重點金句" rows={3} value={form.quote} onChange={(e) => setForm({ ...form, quote: e.target.value })} />
           <Input placeholder="學員署名（例：學員｜陳○○）" value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} />
 
@@ -376,19 +396,41 @@ export default function ReflectionsAdmin() {
                     </Badge>
                   ))}
                 </div>
-                <div className="mt-3 flex gap-1">
+                <div className="mt-3 flex flex-wrap gap-1">
                   <Button size="sm" variant="outline" className="rounded-full" onClick={() => edit(item)}>
                     <Edit3 className="mr-2 h-4 w-4" />修改
                   </Button>
                   <Button size="sm" variant="destructive" className="rounded-full" onClick={() => remove(item.id)}>
                     <Trash2 className="mr-2 h-4 w-4" />刪除
                   </Button>
+                  <Button size="sm" variant="secondary" className="rounded-full" disabled={syncingId === item.id} onClick={() => syncFb(item)}>
+                    {syncingId === item.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
+                    {item.fb_post_id ? "再同步到 FB" : "同步到 FB"}
+                  </Button>
+                  {item.fb_post_id && (
+                    <Badge variant="secondary" className="self-center rounded-full bg-green-100 text-green-800">
+                      ✓ 已同步 FB
+                    </Badge>
+                  )}
                 </div>
               </div>
             ))
           )}
         </div>
       </Card>
+
+      <Dialog open={guideOpen} onOpenChange={setGuideOpen}>
+        <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto rounded-4xl">
+          <DialogHeader>
+            <DialogTitle>AI 文章修正：操作範例</DialogTitle>
+            <DialogDescription>
+              1. 在「心得內容」輸入草稿　2. 按 Monica / Gemini / ChatGPT 其中一個按鈕（內容會自動複製）　3. 在 AI 網站貼上並送出　4. 把修正後的文字複製回「心得內容」，檢查後再儲存。
+            </DialogDescription>
+          </DialogHeader>
+          <img src="/accessibility-guide.png" alt="如何做出符合無障礙標準的文章" className="h-auto w-full rounded-3xl border border-border" />
+          <div className="text-xs text-muted-foreground">圖：製作符合無障礙標準文章的小技巧（網址改成文字說明、附圖請附替代文字、附檔使用中文檔名等）。</div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
